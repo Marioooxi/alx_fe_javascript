@@ -134,3 +134,89 @@ function loadQuotes() {
     document.getElementById('categoryFilter').value = lastSelectedCategory;
     filterQuotes(); // Display quotes based on the last selected category
 }
+const API_URL = 'https://jsonplaceholder.typicode.com/posts'; // Mock API URL
+
+// Function to fetch quotes from the server
+async function fetchQuotesFromServer() {
+    try {
+        const response = await fetch(API_URL);
+        const data = await response.json();
+        
+        // Transform the data to match the quote format
+        const fetchedQuotes = data.map(item => ({
+            text: item.title, // Using title as quote text
+            category: "General" // Default category
+        }));
+
+        return fetchedQuotes;
+    } catch (error) {
+        console.error("Error fetching quotes from server:", error);
+        return [];
+    }
+}
+
+// Periodically fetch new quotes
+setInterval(async () => {
+    const serverQuotes = await fetchQuotesFromServer();
+    syncQuotesWithServer(serverQuotes);
+}, 30000); // Fetch every 30 seconds
+function syncQuotesWithServer(serverQuotes) {
+    const localQuotes = JSON.parse(localStorage.getItem('quotes')) || [];
+
+    // Conflict resolution: Use server data if there are discrepancies
+    serverQuotes.forEach(serverQuote => {
+        const existingQuoteIndex = localQuotes.findIndex(localQuote => localQuote.text === serverQuote.text);
+        
+        if (existingQuoteIndex === -1) {
+            // If the quote does not exist locally, add it
+            localQuotes.push(serverQuote);
+        } else {
+            // If it exists, update it to the server version
+            localQuotes[existingQuoteIndex] = serverQuote;
+        }
+    });
+
+    // Save updated quotes back to local storage
+    localStorage.setItem('quotes', JSON.stringify(localQuotes));
+    alert("Quotes have been synced with the server!");
+}
+function notifyUser(message) {
+    const notification = document.createElement('div');
+    notification.textContent = message;
+    notification.style.position = 'fixed';
+    notification.style.top = '10px';
+    notification.style.right = '10px';
+    notification.style.backgroundColor = 'lightblue';
+    notification.style.padding = '10px';
+    notification.style.border = '1px solid blue';
+    document.body.appendChild(notification);
+
+    // Remove notification after 5 seconds
+    setTimeout(() => {
+        document.body.removeChild(notification);
+    }, 5000);
+}
+
+// Modify syncQuotesWithServer to notify users
+function syncQuotesWithServer(serverQuotes) {
+    const localQuotes = JSON.parse(localStorage.getItem('quotes')) || [];
+    
+    let updated = false; // Flag to check if updates occurred
+
+    serverQuotes.forEach(serverQuote => {
+        const existingQuoteIndex = localQuotes.findIndex(localQuote => localQuote.text === serverQuote.text);
+        
+        if (existingQuoteIndex === -1) {
+            localQuotes.push(serverQuote);
+            updated = true; // New quote added
+        } else if (localQuotes[existingQuoteIndex].text !== serverQuote.text) {
+            localQuotes[existingQuoteIndex] = serverQuote;
+            updated = true; // Existing quote updated
+        }
+    });
+
+    if (updated) {
+        localStorage.setItem('quotes', JSON.stringify(localQuotes));
+        notifyUser("Quotes have been synced with the server!");
+    }
+}
